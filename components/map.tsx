@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
   GoogleMap,
   Marker,
@@ -14,33 +14,86 @@ type DirectionsResult = google.maps.DirectionsResult;
 type MapOptions = google.maps.MapOptions;
 
 export default function Map() {
-  const [office, setOffice] = useState<LatLngLiteral>();
-  const [directions, setDirections] = useState<DirectionsResult>();
+  const [startPos, setStartPos] = useState<LatLngLiteral>();
+  const [endPos, setEndPos] = useState<LatLngLiteral>();
+  const [directions, setDirections] = useState<DirectionsResult[]>([]);
   const mapRef = useRef<GoogleMap>();
-  const center = useMemo<LatLngLiteral>(() => ({ lat: 43, lng: -80 }), []);
+  const center = useMemo<LatLngLiteral>(
+    () => ({ lat: 38.9517, lng: -92.3341 }),
+    []
+  );
+  const loc1: LatLngLiteral = {
+    lat: 38.9517,
+    lng: -92.3341,
+  };
+
+  const loc2: LatLngLiteral = {
+    lat: 38.627,
+    lng: -90.1994,
+  };
   const options = useMemo<MapOptions>(
     () => ({
-      disableDefaultUI: true,
-      clickableIcons: false,
+      disableDefaultUI: false,
+      clickableIcons: true,
     }),
     []
   );
-  const onLoad = useCallback((map) => (mapRef.current = map), []);
+  const onLoad = useCallback((map) => {
+    // let newDirections = directions;
+
+    // const service = new google.maps.DirectionsService();
+    // service.route(
+    //   {
+    //     origin: loc1,
+    //     destination: loc2,
+    //     travelMode: google.maps.TravelMode.WALKING,
+    //   },
+    //   (result, status) => {
+    //     if (status === "OK" && result) {
+    //       console.log(result);
+    //       newDirections.push(result);
+    //     }
+    //   }
+    // );
+    // service.route(
+    //   {
+    //     origin: {
+    //       lat: 38.9517,
+    //       lng: -91.3341,
+    //     },
+    //     destination: {
+    //       lat: 39.9517,
+    //       lng: -91.3341,
+    //     },
+    //     travelMode: google.maps.TravelMode.WALKING,
+    //   },
+    //   (result, status) => {
+    //     if (status === "OK" && result) {
+    //       console.log(result);
+    //       newDirections.push(result);
+    //     }
+    //   }
+    // );
+
+    // setDirections(newDirections);
+
+    mapRef.current = map;
+  }, []);
   const houses = useMemo(() => generateHouses(center), [center]);
 
   const fetchDirections = (house: LatLngLiteral) => {
-    if (!office) return;
+    if (!startPos) return;
 
     const service = new google.maps.DirectionsService();
     service.route(
       {
         origin: house,
-        destination: office,
+        destination: startPos,
         travelMode: google.maps.TravelMode.WALKING,
       },
       (result, status) => {
         if (status === "OK" && result) {
-          setDirections(result);
+          setDirections([...directions, result]);
         }
       }
     );
@@ -51,13 +104,24 @@ export default function Map() {
       <div className="controls">
         <h1>Commute?</h1>
         <Places
-          setOffice={(position) => {
-            setOffice(position);
+          startPos={startPos}
+          setStartPos={(position) => {
+            setStartPos(position);
             mapRef.current?.panTo(position);
           }}
+          endPos={endPos!}
+          setEndPos={(position) => {
+            setEndPos(position);
+            mapRef.current?.panTo(position);
+          }}
+          directions={directions}
+          setDirections={setDirections}
         />
-        {!office && <p>Enter an address</p>}
-        {directions && <Distance leg={directions.routes[0].legs[0]} />}
+        {directions.map((direction, i) =>
+          direction ? (
+            <Distance key={i} leg={direction.routes[0].legs[0]} />
+          ) : null
+        )}
       </div>
       <div className="map">
         <GoogleMap
@@ -67,9 +131,10 @@ export default function Map() {
           options={options}
           onLoad={onLoad}
         >
-          {directions && (
+          {directions.map((direction, i) => (
             <DirectionsRenderer
-              directions={directions}
+              key={i}
+              directions={direction}
               options={{
                 polylineOptions: {
                   zIndex: 50,
@@ -78,37 +143,48 @@ export default function Map() {
                 },
               }}
             />
-          )}
+          ))}
 
-          {office && (
-            <>
-              <Marker position={office} />
+          {/* <DirectionsRenderer
+            directions={directions[0]}
+            options={{
+              polylineOptions: {
+                zIndex: 50,
+                strokeColor: "#1976D2",
+                strokeWeight: 5,
+              },
+            }}
+          />
+          <DirectionsRenderer
+            directions={directions[1]}
+            options={{
+              polylineOptions: {
+                zIndex: 50,
+                strokeColor: "#1976D2",
+                strokeWeight: 5,
+              },
+            }}
+          /> */}
 
-              {/* <MarkerClusterer>
-                {(clusterer) => {
-                  houses.map((house) => (
-                    <Marker
-                      key={house.lat * house.lng}
-                      position={house}
-                      clusterer={clusterer}
-                    />
-                  ));
-                }}
-              </MarkerClusterer> */}
+          {startPos && <Marker position={startPos} />}
+          {endPos && <Marker position={endPos} />}
 
-              {houses.map((house) => (
-                <Marker
-                  key={house.lat * house.lng}
-                  position={house}
-                  onClick={() => {
-                    fetchDirections(house);
-                  }}
-                />
-              ))}
-            </>
-          )}
+          {/* <Marker
+            position={loc1}
+            onClick={() => {
+              console.log(loc1);
+            }}
+          />
+          <Marker
+            position={loc2}
+            onClick={() => {
+              console.log(loc2);
+            }}
+          /> */}
         </GoogleMap>
       </div>
+
+      <button onClick={() => console.log(directions)}>Click</button>
     </div>
   );
 }
@@ -151,6 +227,7 @@ const generateHouses = (position: LatLngLiteral) => {
       lat: position.lat + Math.random() / direction,
       lng: position.lng + Math.random() / direction,
     });
+    console.log(position.lat + Math.random() / direction);
   }
   return _houses;
 };
