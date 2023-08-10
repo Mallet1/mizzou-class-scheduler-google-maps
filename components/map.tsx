@@ -1,4 +1,11 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import {
+  useState,
+  useMemo,
+  useCallback,
+  useRef,
+  useEffect,
+  useReducer,
+} from "react";
 import {
   GoogleMap,
   Marker,
@@ -8,12 +15,16 @@ import {
 } from "@react-google-maps/api";
 import Places from "./places";
 import Distance from "./distance";
+import { AllDirectionType } from "./types";
+import { defaultPathOptions } from "./utils";
 
 type LatLngLiteral = google.maps.LatLngLiteral;
 type DirectionsResult = google.maps.DirectionsResult;
 type MapOptions = google.maps.MapOptions;
 
 export default function Map() {
+  const [, forceUpdate] = useReducer((x) => x + 1, 0);
+
   const [startPos, setStartPos] = useState<LatLngLiteral>();
   const [endPos, setEndPos] = useState<LatLngLiteral>();
   const [directions, setDirections] = useState<DirectionsResult[]>([]);
@@ -99,10 +110,39 @@ export default function Map() {
     );
   };
 
+  const [allDirections, setAllDirections] = useState<AllDirectionType>({
+    Monday: [{ directions: null, show: true, pathOptions: defaultPathOptions }],
+    Tuesday: [
+      { directions: null, show: true, pathOptions: defaultPathOptions },
+    ],
+    Wednesday: [
+      { directions: null, show: true, pathOptions: defaultPathOptions },
+    ],
+    Thursday: [
+      { directions: null, show: true, pathOptions: defaultPathOptions },
+    ],
+    Friday: [{ directions: null, show: true, pathOptions: defaultPathOptions }],
+    Saturday: [
+      { directions: null, show: true, pathOptions: defaultPathOptions },
+    ],
+    Sunday: [{ directions: null, show: true, pathOptions: defaultPathOptions }],
+  });
+  const [selectedWeekday, setSelectedWeekday] = useState<string>("Monday");
+  const [selectedDirectionIndex, setSelectedDirectionIndex] = useState<
+    number | null
+  >(null);
+
   return (
     <div className="container">
       <div className="controls">
-        <h1>Commute?</h1>
+        <button
+          onClick={() => {
+            forceUpdate();
+            console.log(allDirections);
+          }}
+        >
+          Click
+        </button>
         <Places
           startPos={startPos}
           setStartPos={(position) => {
@@ -114,14 +154,24 @@ export default function Map() {
             setEndPos(position);
             mapRef.current?.panTo(position);
           }}
-          directions={directions}
-          setDirections={setDirections}
+          allDirections={allDirections}
+          setAllDirections={setAllDirections}
+          selectedWeekday={selectedWeekday}
+          setSelectedWeekday={setSelectedWeekday}
+          selectedDirectionIndex={selectedDirectionIndex}
+          setSelectedDirectionIndex={setSelectedDirectionIndex}
+          rerenderMap={forceUpdate}
         />
-        {directions.map((direction, i) =>
-          direction ? (
-            <Distance key={i} leg={direction.routes[0].legs[0]} />
-          ) : null
-        )}
+        {selectedDirectionIndex !== null &&
+          allDirections[selectedWeekday][selectedDirectionIndex] &&
+          allDirections[selectedWeekday][selectedDirectionIndex].directions && (
+            <Distance
+              leg={
+                allDirections[selectedWeekday][selectedDirectionIndex]
+                  .directions!.routes[0].legs[0]
+              }
+            />
+          )}
       </div>
       <div className="map">
         <GoogleMap
@@ -131,19 +181,25 @@ export default function Map() {
           options={options}
           onLoad={onLoad}
         >
-          {directions.map((direction, i) => (
-            <DirectionsRenderer
-              key={i}
-              directions={direction}
-              options={{
-                polylineOptions: {
-                  zIndex: 50,
-                  strokeColor: "#1976D2",
-                  strokeWeight: 5,
-                },
-              }}
-            />
-          ))}
+          {allDirections[selectedWeekday].map((direction, i) => {
+            return (
+              direction.directions !== null &&
+              direction.show && (
+                <DirectionsRenderer
+                  key={i}
+                  directions={direction.directions}
+                  options={{
+                    polylineOptions: {
+                      zIndex: direction.pathOptions.zIndex,
+                      strokeColor: direction.pathOptions.strokeColor,
+                      strokeWeight: direction.pathOptions.strokeWeight,
+                    },
+                    draggable: true,
+                  }}
+                />
+              )
+            );
+          })}
 
           {/* <DirectionsRenderer
             directions={directions[0]}
@@ -183,8 +239,6 @@ export default function Map() {
           /> */}
         </GoogleMap>
       </div>
-
-      <button onClick={() => console.log(directions)}>Click</button>
     </div>
   );
 }

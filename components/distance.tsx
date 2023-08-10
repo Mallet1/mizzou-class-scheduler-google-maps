@@ -9,6 +9,7 @@ type DistanceProps = {
 };
 
 export default function Distance({ leg }: DistanceProps) {
+  console.log(leg);
   if (!leg.distance || !leg.duration) return null;
 
   const days = Math.floor(
@@ -22,10 +23,16 @@ export default function Distance({ leg }: DistanceProps) {
   return (
     <div>
       <p>
-        This home is <span className="highlight">{leg.distance.text}</span>
+        Start: <span className="highlight">{leg.start_address}</span>
+      </p>
+      <p>
+        End: <span className="highlight">{leg.end_address}</span>
+      </p>
+      <p>
+        This path is <span className="highlight">{leg.distance.text}</span>
       </p>{" "}
-      away from youir office. That would take{" "}
-      <span className="highlight">{leg.duration.text}</span> by foot.
+      That would take <span className="highlight">{leg.duration.text}</span> by
+      foot.
     </div>
   );
 }
